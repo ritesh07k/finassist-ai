@@ -2,9 +2,40 @@ spring:
   application:
     name: finassist-ai
 
+  datasource:
+    url: jdbc:postgresql://localhost:5432/finassist
+    username: finassist
+    password: finassist
+
   ai:
     ollama:
       base-url: http://localhost:11434
+
       chat:
         options:
           model: qwen2.5:3b
+
+      embedding:
+        options:
+          model: nomic-embed-text
+
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+
+      chat:
+      observations:
+        log-prompt: true
+        log-completion: true
+
+logging:
+  level:
+    org.springframework.ai: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+

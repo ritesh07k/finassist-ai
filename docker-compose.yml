@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: finassist-postgres
+    environment:
+      POSTGRES_DB: finassist
+      POSTGRES_USER: finassist
+      POSTGRES_PASSWORD: finassist
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
