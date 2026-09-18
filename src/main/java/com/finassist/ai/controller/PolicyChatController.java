@@ -16,30 +16,21 @@ public class PolicyChatController {
             ChatClient.Builder chatClientBuilder,
             VectorStore vectorStore) {
 
-        // Create the ChatClient that talks to our Qwen model.
         this.chatClient = chatClientBuilder
-        .defaultAdvisors(
-                QuestionAnswerAdvisor.builder(vectorStore)
-                        .searchRequest(SearchRequest.builder()
-                                .topK(2)
-                                .similarityThreshold(0.55)
-                                .build())
-                        .build()
-        )
-        .build();
+                .defaultAdvisors(
+                        QuestionAnswerAdvisor.builder(vectorStore)
+                                .searchRequest(SearchRequest.builder()
+                                        .topK(2)
+                                        .similarityThreshold(0.55)
+                                        .filterExpression("type == 'policy'")
+                                        .build())
+                                .build()
+                )
+                .build();
     }
 
     @GetMapping("/policy")
     public String policyChat(@RequestParam String message) {
-
-        // Send the user's question to the LLM.
-        //
-        // QuestionAnswerAdvisor automatically:
-        // 1. Searches the vector store.
-        // 2. Retrieves relevant documents.
-        // 3. Adds them to the LLM context.
-        // 4. Sends the augmented prompt to Qwen.
-        // 5. Returns the generated response.
         return chatClient
                 .prompt()
                 .user(message)
