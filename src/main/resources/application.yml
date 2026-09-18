@@ -7,6 +7,11 @@ spring:
     username: finassist
     password: finassist
 
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
   ai:
     ollama:
       base-url: http://localhost:11434
@@ -23,7 +28,7 @@ spring:
       pgvector:
         initialize-schema: true
 
-      chat:
+    chat:
       observations:
         log-prompt: true
         log-completion: true
@@ -31,11 +36,10 @@ spring:
 logging:
   level:
     org.springframework.ai: DEBUG
+    org.springframework.ai.chat.client: DEBUG
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info,metrics
-
-
