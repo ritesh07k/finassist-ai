@@ -30,11 +30,16 @@ public class PolicyChatController {
     }
 
     @GetMapping("/policy")
-    public String policyChat(@RequestParam String message) {
-        return chatClient
-                .prompt()
-                .user(message)
-                .call()
-                .content();
+public String policyChat(@RequestParam String message) {
+
+    if (message == null || message.isBlank()) {
+        throw new IllegalArgumentException("message parameter cannot be empty.");
     }
+
+    return chatClient
+            .prompt()
+            .user(message)
+            .call()
+            .content();
+}
 }

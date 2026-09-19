@@ -1,9 +1,12 @@
 package com.finassist.ai.controller;
 
+import com.finassist.ai.dto.ApiResponse;
 import com.finassist.ai.dto.ExtractedTransaction;
 import com.finassist.ai.model.Transaction;
 import com.finassist.ai.model.TransactionType;
 import com.finassist.ai.repository.TransactionRepository;
+import com.finassist.ai.service.CategoryEnrichmentService;
+import com.finassist.ai.service.TransactionEmbeddingService;
 import com.finassist.ai.service.TransactionExtractionService;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.tika.TikaDocumentReader;
@@ -31,66 +34,67 @@ public class StatementUploadController {
 
     private final TransactionExtractionService extractionService;
     private final TransactionRepository transactionRepository;
+    private final CategoryEnrichmentService enrichmentService;
+    private final TransactionEmbeddingService embeddingService;
 
     public StatementUploadController(TransactionExtractionService extractionService,
-                                      TransactionRepository transactionRepository) {
+                                      TransactionRepository transactionRepository,
+                                      CategoryEnrichmentService enrichmentService,
+                                      TransactionEmbeddingService embeddingService) {
         this.extractionService = extractionService;
         this.transactionRepository = transactionRepository;
+        this.enrichmentService = enrichmentService;
+        this.embeddingService = embeddingService;
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<String> uploadStatement(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<ApiResponse<String>> uploadStatement(@RequestParam("file") MultipartFile file) throws Exception {
 
         if (file.isEmpty()) {
-            return ResponseEntity.badRequest().body("Statement file cannot be empty.");
+            throw new IllegalArgumentException("Statement file cannot be empty.");
         }
 
-        try {
-            String rawText = extractRawText(file);
+        String rawText = extractRawText(file);
 
-            BigDecimal openingBalance = extractOpeningBalance(rawText);
-            if (openingBalance == null) {
-                return ResponseEntity.badRequest()
-                        .body("Could not find an Opening Balance line in the statement — cannot derive transaction directions without it.");
-            }
-
-            List<ExtractedTransaction> extracted =
-                    extractionService.extractTransactions(rawText);
-
-            List<Transaction> validated = new ArrayList<>();
-            List<String> flagged = new ArrayList<>();
-            BigDecimal previousBalance = openingBalance;
-
-            for (ExtractedTransaction e : extracted) {
-                Transaction t = toEntity(e, previousBalance, file.getOriginalFilename());
-                if (t == null) {
-                    flagged.add(e.getDescription() + " (unparseable row)");
-                } else {
-                    validated.add(t);
-                }
-                // advance the running balance using the LLM's reported balance,
-                // regardless of whether this row parsed cleanly, so a single bad
-                // row doesn't cascade into every row after it
-                if (e.getBalance() != null) {
-                    previousBalance = e.getBalance();
-                }
-            }
-
-            transactionRepository.saveAll(validated);
-
-            String message = "Ingested " + validated.size() + " of " + extracted.size()
-                    + " extracted rows from: " + file.getOriginalFilename();
-
-            if (!flagged.isEmpty()) {
-                message += ". Flagged " + flagged.size() + " row(s): " + flagged;
-            }
-
-            return ResponseEntity.ok(message);
-
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body("Failed to process statement: " + e.getMessage());
+        BigDecimal openingBalance = extractOpeningBalance(rawText);
+        if (openingBalance == null) {
+            throw new IllegalArgumentException(
+                    "Could not find an Opening Balance line in the statement — cannot derive transaction directions without it.");
         }
+
+        List<ExtractedTransaction> extracted = extractionService.extractTransactions(rawText);
+
+        List<Transaction> validated = new ArrayList<>();
+        List<String> flagged = new ArrayList<>();
+        BigDecimal previousBalance = openingBalance;
+
+        for (ExtractedTransaction e : extracted) {
+            Transaction t = toEntity(e, previousBalance, file.getOriginalFilename());
+            if (t == null) {
+                flagged.add(e.getDescription() + " (unparseable row)");
+            } else {
+                validated.add(t);
+            }
+            if (e.getBalance() != null) {
+                previousBalance = e.getBalance();
+            }
+        }
+
+        transactionRepository.saveAll(validated);
+
+        int categorizedCount = enrichmentService.enrichUncategorized();
+        int embeddedCount = embeddingService.embedAllTransactions();
+
+        String message = "Ingested " + validated.size() + " of " + extracted.size()
+                + " extracted rows from: " + file.getOriginalFilename()
+                + ". Categorized " + categorizedCount + " transaction(s)."
+                + " Embedded " + embeddedCount + " transaction(s).";
+
+        if (!flagged.isEmpty()) {
+            message += " Flagged " + flagged.size() + " row(s): " + flagged;
+        }
+
+        return ResponseEntity.ok(ApiResponse.of(message));
     }
 
     private String extractRawText(MultipartFile file) throws Exception {

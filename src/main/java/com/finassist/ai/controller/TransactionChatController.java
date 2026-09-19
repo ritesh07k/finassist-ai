@@ -49,14 +49,18 @@ public class TransactionChatController {
     }
 
     @GetMapping("/transactions")
-    public String chat(@RequestParam String message,
-                        @RequestParam(defaultValue = "default-session") String conversationId) {
+public String chat(@RequestParam String message,
+                    @RequestParam(defaultValue = "default-session") String conversationId) {
 
-        return chatClient
-                .prompt()
-                .user(message)
-                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
-                .call()
-                .content();
+    if (message == null || message.isBlank()) {
+        throw new IllegalArgumentException("message parameter cannot be empty.");
     }
+
+    return chatClient
+            .prompt()
+            .user(message)
+            .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
+            .call()
+            .content();
+}
 }

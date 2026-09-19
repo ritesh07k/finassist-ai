@@ -1,5 +1,6 @@
 package com.finassist.ai.controller;
 
+import com.finassist.ai.dto.ApiResponse;
 import com.finassist.ai.service.CategoryEnrichmentService;
 import com.finassist.ai.service.TransactionEmbeddingService;
 import org.springframework.http.ResponseEntity;
@@ -21,20 +22,14 @@ public class EnrichmentController {
     }
 
     @PostMapping("/categorize")
-    public ResponseEntity<String> categorize() {
+    public ResponseEntity<ApiResponse<String>> categorize() {
         int count = enrichmentService.enrichUncategorized();
-        return ResponseEntity.ok("Categorized " + count + " transaction(s).");
+        return ResponseEntity.ok(ApiResponse.of("Categorized " + count + " transaction(s)."));
     }
 
     @PostMapping("/embed")
-public ResponseEntity<String> embed() {
-    try {
+    public ResponseEntity<ApiResponse<String>> embed() {
         int count = embeddingService.embedAllTransactions();
-        return ResponseEntity.ok("Embedded " + count + " transaction(s).");
-    } catch (Exception e) {
-        e.printStackTrace();
-        return ResponseEntity.internalServerError()
-                .body("Embedding failed: " + e.getMessage());
+        return ResponseEntity.ok(ApiResponse.of("Embedded " + count + " transaction(s)."));
     }
-}
 }
